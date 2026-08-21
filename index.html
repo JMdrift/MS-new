@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
+<link rel="manifest" href="manifest.json"/>
+<meta name="theme-color" content="#0e0e0e"/>
+<link rel="apple-touch-icon" href="icon-192.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Moje Stavba"/>
+<title>Moje Stavba</title>
+<link rel="stylesheet" href="app.css"/>
+<script>
+  // JEDNORAZOVE zmereni skutecne viditelne vysky okna do CSS promenne.
+  // DUVOD: 100vh/100dvh/100svh samotne obcas na realnem iPhonu ve
+  // standalone PWA rezimu nedosahnou uplne dolu (zbyde proužek pozadi
+  // <body> pod appkou). Toto NENI totez jako drivejsi "sledovani
+  // klavesnice" pres visualViewport (to zpusobovalo regrese - viz
+  // komentar v main.js) - tady se vyska meri jen JEDNOU pri startu a
+  // pri otoceni obrazovky, NIKDY na obycejny 'resize' (ten se spousti
+  // i pri otevreni klavesnice a delal by presne ty stare problemy).
+  //
+  // POZNAMKA: byl tu kratce pokus o opakovane premereni (hned + rAF +
+  // timeouty + visibilitychange), aby se odchytil pripad, kdy prvni
+  // zmereni vyjde moc velke po navratu z pozadi. Ukazalo se ale, ze to
+  // zpusobilo presne opacny problem - jedno z pozdejsich premereni
+  // obcas chytlo MENSI cislo nez skutecna vyska a --app-vh se zmensil,
+  // takze se spodek appky prestal dotahovat dolu (puvodni bug se
+  // vratil v jine podobe). Jedno cisté zmereni pri startu se v praxi
+  // ukazalo jako spolehlivejsi nez opakovane hadani - pokud se tenhle
+  // problem znovu objevi, resit ho jinak nez pridavanim dalsich
+  // remeasure pokusu.
+  (function(){
+    function setAppVh(){
+      document.documentElement.style.setProperty('--app-vh', window.innerHeight + 'px');
+    }
+    setAppVh();
+    window.addEventListener('orientationchange', function(){ setTimeout(setAppVh, 250); });
+    window.addEventListener('pageshow', setAppVh);
+  })();
+</script>
+</head>
+<body>
+
+<!--
+  UVODNI OBRAZOVKA (14.8.2026): appka pri vetsim mnozstvi dat (stovky
+  fotek) nekolik vterin necinne cekala - viz msHydrateBlobCache()
+  v main.js, ktera pri startu natahuje nahledy vsech fotek/dokumentu
+  z IndexedDB, driv nez appka vykresli prvni obrazovku. Do te doby
+  clovek koukal na prazdno.
+  Tenhle blok ma VLASTNI inline styl (nespoleha na app.css, ktery se
+  jeste nemusi stihnout nacist) a vykresli se OKAMZITE, driv nez se
+  spusti jediny radek JS. Barva pozadi (#050f1a) je prevzata primo
+  z dodaneho loga MJ Production, at kolem obrazku neni viditelny svar.
+  Postup dole je NAPOJENY NA SKUTECNE NACITANI (main.js volá
+  window.__msSplashProgress), ne na predstiranou animaci - viz zasady
+  appky o poctivem zobrazovani prubehu.
+-->
+<div id="ms-splash" style="position:fixed;inset:0;z-index:999;background:#050f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;transition:opacity .35s ease">
+  <img src="mj-production-logo.png" width="132" height="132" alt="" style="width:132px;height:132px;filter:drop-shadow(0 0 18px rgba(255,155,50,.18))"/>
+  <div style="text-align:center">
+    <div style="font-family:Georgia,'Times New Roman',serif;font-size:20px;letter-spacing:.04em;color:#f0ebe3">Moje Stavba</div>
+    <div style="font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:#7b8494;margin-top:5px">MJ Production</div>
+  </div>
+  <div style="width:148px;height:3px;background:rgba(255,255,255,.09);overflow:hidden;margin-top:6px">
+    <div id="ms-splash-bar" style="height:100%;width:6%;background:#ff9b32;transition:width .25s ease"></div>
+  </div>
+  <div id="ms-splash-label" style="font-size:10px;color:#5c6474;letter-spacing:.02em">Spouštím…</div>
+  <!-- DOPLNENO (14.8.2026): MS_BUILD_VERSION jeste neexistuje v tomhle
+       miste souboru (definuje se az v data.js, nacitanem mnohem pozdeji) -
+       prazdne misto se doplni z main.js, hned na zacatku jeho behu, driv
+       nez cokoliv asynchronniho - pri minimalni dobe zobrazeni splashe
+       (3 vteriny) je na to spolehlive dost casu. -->
+  <div id="ms-splash-version" style="font-size:8px;color:#3d4350;letter-spacing:.04em;margin-top:2px"></div>
+</div>
+<script>
+  // Male globalni rozhrani, kterym main.js hlasi skutecny prubeh -
+  // definovano tady (ne az v main.js), at je pripravene driv, nez
+  // main.js poprve zavola.
+  window.__msSplashStartedAt = Date.now();
+  // (14.8.2026) Na rychlem telefonu s malo daty appka nastartuje tak
+  // rychle, ze logo bylo videt jen jako bliknuti - MINIMALNI_DOBA
+  // zarucuje, ze zustane videt aspon tuhle chvili, i kdyz je appka
+  // hotova driv. Kdyz start trva DELE (skutecne velky projekt, pomala
+  // sit), zadne umele cekani navic nepridava - jen dorovnava rozdil
+  // do minima, nikdy nezpomaluje uz tak pomaly start.
+  var MINIMALNI_DOBA_SPLASH = 3000;
+  window.__msSplashProgress = function(hotovo, celkem, popisek){
+    var bar = document.getElementById('ms-splash-bar');
+    var lbl = document.getElementById('ms-splash-label');
+    if(!bar || !lbl) return;
+    if(celkem > 0){
+      var pct = Math.max(6, Math.round((hotovo / celkem) * 100));
+      bar.style.width = pct + '%';
+    }
+    if(popisek) lbl.textContent = popisek;
+  };
+  window.__msSplashDone = function(){
+    var el = document.getElementById('ms-splash');
+    if(!el) return;
+    var uplynulo = Date.now() - window.__msSplashStartedAt;
+    var zbyva = Math.max(0, MINIMALNI_DOBA_SPLASH - uplynulo);
+    setTimeout(function(){
+      el.style.opacity = '0';
+      setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 380);
+    }, zbyva);
+  };
+  // POJISTKA (14.8.2026): kdyby cokoliv v hlavni boot sekvenci appky
+  // (main.js) spadlo driv, nez stihne zavolat __msSplashDone(), tenhle
+  // pomeznik ji po 8 vterinach schova sam - lepsi rozbita appka za
+  // splashem nez navzdy zaseknuta nacitaci obrazovka, ktera clovek
+  // nemuze nijak obejit. (Nezavisi na MINIMALNI_DOBA_SPLASH vyse -
+  // 8 vterin uz je vic nez dost, zadne dalsi cekani se nepricita.)
+  setTimeout(function(){
+    if(typeof window.__msSplashDone === 'function') window.__msSplashDone();
+  }, 8000);
+</script>
+
+<!--
+  CELÁ APPKA JE JEDEN PEVNĚ UKOTVENÝ KONTEJNER (#app-shell).
+  position:fixed + inset:0 vždy přesně odpovídá viditelné ploše
+  prohlížeče, bez ohledu na to, jak se mění výška podle skrývání
+  adresního řádku. Uvnitř je to normální flexbox sloupec - horní lišta
+  a spodní navigace jsou obyčejné položky v tomhle sloupci, ne nic
+  "vznášejícího se" navíc. Díky tomu se nemůže stát, že by menu
+  "uteklo" - je to fyzicky součástí té samé ukotvené krabice.
+-->
+<div id="app-shell">
+  <div id="app-frame">
+    <div id="app-content"><!-- sem router vykresluje jednotlivé obrazovky --></div>
+    <!-- ztmaveni pozadi pri vysunutem vyberu etapy -->
+    <div id="dd-backdrop"></div>
+    <nav id="bottom-nav" hidden>
+      <!-- Rada 1 - ctyri hlavni sekce, uprostred mezera pro kruhove "+" -->
+      <div class="nav-row nav-row-1">
+      <button class="nav-item" data-route="dashboard" style="--nc:#dfe4f5">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>
+        <b>Domů</b>
+      </button>
+      <button class="nav-item" data-route="diary" style="--nc:#ff7a86">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h9l3 3v13H6z"/><path d="M9 11h6M9 15h6"/></svg>
+        <b>Deník</b>
+      </button>
+        <button class="nav-add" id="navAddBtn">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      <button class="nav-item" data-route="stages" style="--nc:#b34cff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>
+        <b>Etapy</b>
+      </button>
+      <button class="nav-item" data-route="finance" style="--nc:#4dffab">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h15a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z"/><path d="M16 12h4"/></svg>
+        <b>Finance</b>
+      </button>
+      </div>
+      <!-- Rada 2 - zbylych pet sekci -->
+      <div class="nav-row nav-row-2">
+      <button class="nav-item" data-route="gallery" style="--nc:#25b7ff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="1"/><circle cx="12" cy="13" r="3.5"/></svg>
+        <b>Galerie</b>
+      </button>
+      <button class="nav-item" data-route="calendar" style="--nc:#25e8ff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="1"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+        <b>Kalendář</b>
+      </button>
+      <button class="nav-item" data-route="sdilet-stavbu" style="--nc:#ffd35c">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-3.9M8.6 13.5l6.8 3.9"/></svg>
+        <b>Sdílení</b>
+      </button>
+      <button class="nav-item" data-route="project" style="--nc:#94a0bc">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V9l8-5 8 5v12"/><path d="M9 21v-7h6v7"/></svg>
+        <b>Projekt</b>
+      </button>
+      <button class="nav-item" data-route="tasks" style="--nc:#ff9b32">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="2"/></svg>
+        <b>Úkoly</b>
+      </button>
+      </div>
+    </nav>
+
+    <!-- rychlé přidání - uvnitř app-frame, ne k celému oknu prohlížeče (jinak by na širší obrazovce uteklo mimo kartu appky) -->
+    <div id="quick-add-backdrop" hidden></div>
+    <div id="quick-add-radial" hidden>
+      <div class="qa-sat" data-target="expense-add" style="--sc:#4dffab">
+        <div class="qa-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h15a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z"/><path d="M16 12h4"/></svg></div>
+        <b>Peníze</b>
+      </div>
+      <div class="qa-sat" data-target="diary-add" style="--sc:#ffd35c">
+        <div class="qa-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l3 3v15H6z"/><path d="M9 10h6M9 14h6"/></svg></div>
+        <b>Deník</b>
+      </div>
+      <div class="qa-sat" data-target="event-add" style="--sc:#25b7ff">
+        <div class="qa-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="1"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></div>
+        <b>Událost</b>
+      </div>
+      <div class="qa-sat" data-target="photo-add" style="--sc:#b34cff">
+        <div class="qa-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="1"/><circle cx="12" cy="13" r="3.5"/></svg></div>
+        <b>Fotky</b>
+      </div>
+      <div class="qa-sat" data-target="task-add" style="--sc:#ff9b32">
+        <div class="qa-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><rect x="3" y="4" width="18" height="17" rx="2"/></svg></div>
+        <b>Úkol</b>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="confirm-overlay">
+  <div class="confirm-sheet">
+    <p id="confirm-message"></p>
+    <div class="confirm-actions">
+      <button class="confirm-cancel" id="confirm-cancel-btn">Zrušit</button>
+      <button class="confirm-ok" id="confirm-ok-btn">Potvrdit</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="supabase-config.js"></script>
+<script src="supabase-client.js"></script>
+<script src="data.js"></script>
+<script src="supabase-data.js"></script>
+<script src="pdf-font.js"></script>
+<script src="pdf-generator.js"></script>
+<script src="icons.js"></script>
+<script src="router.js"></script>
+<script src="layout.js"></script>
+<script src="tour.js"></script>
+<script src="screen-appLock.js"></script>
+<script src="screen-onboarding.js"></script>
+<script src="screen-dashboard.js"></script>
+<script src="screen-stagesWheel.js"></script>
+<script src="screen-stagesList.js"></script>
+<script src="screen-stageDetail.js"></script>
+<script src="screen-newStage.js"></script>
+<script src="screen-diary.js"></script>
+<script src="screen-diaryExport.js"></script>
+<script src="screen-finance.js"></script>
+<script src="screen-transactions.js"></script>
+<script src="screen-stageExpenses.js"></script>
+<script src="screen-gallery.js"></script>
+<script src="screen-calendar.js"></script>
+    <script src="screen-tasks.js"></script>
+    <script src="screen-news.js"></script>
+<script src="screen-project.js"></script>
+<script src="screen-misc.js"></script>
+<script src="screen-settings.js"></script>
+<script src="screen-legal.js"></script>
+<script src="screen-premiumLogin.js"></script>
+<script src="screen-shareStavba.js"></script>
+<script src="screen-forms.js"></script>
+<script src="main.js"></script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('service-worker.js').catch(()=>{}); });
+}
+</script>
+</body>
+</html>

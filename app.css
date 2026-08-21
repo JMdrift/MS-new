@@ -1,0 +1,519 @@
+/* ==========================================================
+   ZAKLADNI RESET + SHELL
+   PUVODNI reseni bylo #app-shell jako position:fixed + inset:0,
+   v teorii spolehlive, ale v praxi na realnem telefonu (potvrzeno
+   srovnanim se starou appkou, ktera tohle NEMELA) zpusobovalo tu
+   bilou listu dole. Stara appka pouzivala normalni (ne-fixni) blok
+   s height:100svh (small viewport height) - presne tohle ted
+   pouzivame taky, at appka dela to, co je overene funkcni.
+   ========================================================== */
+/* ==========================================================
+   SYSTEM MOTIVU
+   Zakladni (neon) paleta + libovolny dalsi motiv (Skica, Eco...)
+   se prepina pridanim [data-theme="xxx"] na <html> (viz layout.js).
+   Vsechny "opravy neonovych pozustatku" nize plati pro JAKYKOLIV
+   nenulovy motiv ([data-theme] bez konkretni hodnoty) - takze
+   pribyde-li treti motiv, tahle cast se uz nemusi znovu resit,
+   staci pridat jen novy [data-theme="jmeno"]{ promenne } blok.
+   ========================================================== */
+:root{
+  --muted:#94a0bc;
+  --line:rgba(122,141,190,.22);
+  --accent:#b34cff;
+  --radius:3px;
+  --bg-deep:#02050e;
+  --card-bg:rgba(4,7,18,.6);
+  --card-bg-2:rgba(6,10,22,.5);
+  --text-main:#f5f7ff;
+  --font-head:inherit;
+  --font-mono:inherit;
+  --grid-opacity:.03;
+  --grid-rgb:255,255,255;
+  --shadow-rgb:0,0,0;
+  --money-pos:#4dffab;
+  --hero-text:#dfe4f5;
+  --hero-text-strong:#fff;
+  --hero-text-shadow:0 1px 6px rgba(0,0,0,.8);
+  /* Slozky "Projekt" a akcni prvky (pridat/prejmenovat) - 1.8.2026,
+     schvaleno na nahledu, sladeno s barvami uz pouzitymi na Dashboardu
+     (modra u "Sdileno", oranzova u "Planovano"). */
+  --folder-color:#25b7ff;
+  --add-color:#ff9b32;
+}
+
+[data-theme="sketch-dark"]{
+  --muted:#948a7c;
+  --line:#3a332c;
+  --accent:#c8562f;
+  --radius:0px;
+  --bg-deep:#191919;
+  --card-bg:#201c19;
+  --card-bg-2:#211d1a;
+  --text-main:#f0ebe3;
+  --font-head:Georgia,serif;
+  --font-mono:"Courier New",monospace;
+  --grid-opacity:.06;
+  --grid-rgb:200,86,47;
+  --shadow-rgb:0,0,0;
+  --money-pos:#e0a05a;
+  --hero-text:#f0ebe3;
+  --hero-text-strong:#fff;
+  --hero-text-shadow:0 1px 3px rgba(0,0,0,.9), 0 0 12px rgba(0,0,0,.85);
+  --folder-color:#5a8fb0;
+  --add-color:var(--accent);
+}
+
+/* POZOR: zadny plosny grayscale filtr v zadnem z motivu - obrazky domu
+   maji zamerne barevne akcenty (cihlova/zelen) a ty chceme zachovat */
+[data-theme] #app-frame{ background:var(--bg-deep) !important; }
+[data-theme] #app-frame:before{
+  background-image:linear-gradient(rgba(var(--grid-rgb),var(--grid-opacity)) 1px,transparent 1px),
+                    linear-gradient(90deg,rgba(var(--grid-rgb),var(--grid-opacity)) 1px,transparent 1px) !important;
+}
+[data-theme] h1, [data-theme] h2{ font-family:var(--font-head); color:var(--text-main) !important; }
+[data-theme] .topbar, [data-theme] #bottom-nav{ border-color:var(--line) !important; background:var(--bg-deep) !important; }
+[data-theme] .nav-add{ border-color:var(--accent) !important; background:var(--card-bg) !important; box-shadow:2px 2px 0 rgba(var(--shadow-rgb),.15) !important; color:var(--accent) !important; }
+[data-theme] .nav-item.active b{ color:var(--nc, var(--accent)) !important }
+[data-theme] .btn-primary{ border-radius:var(--radius) !important; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:.03em;
+  border-color:var(--accent) !important; color:var(--accent) !important; box-shadow:2px 2px 0 rgba(var(--shadow-rgb),.12);
+  background:var(--card-bg) !important }
+[data-theme] .ob-dot[data-active="true"]{ background:var(--accent) !important }
+[data-theme] body, [data-theme] #app-shell, [data-theme] #app-frame{ background:var(--bg-deep) !important }
+[data-theme] .confirm-sheet{ background:var(--card-bg) !important; border-color:var(--line) !important }
+[data-theme] .confirm-sheet p{ color:var(--text-main) !important }
+[data-theme] .confirm-ok{ color:var(--accent) !important; border-color:var(--accent) !important }
+[data-theme] .confirm-cancel{ color:var(--muted) !important }
+
+/* text natvrdo bily/svetly (psano pro tmavy neon) by na svetlem
+   pozadi zmizel - vynutime hlavni inkoustovou barvu vsude */
+[data-theme] body *{ color:var(--text-main) !important }
+[data-theme] body svg{ color:var(--text-main) !important }
+[data-theme] .stage-icon-colored svg, [data-theme] .stage-icon-colored svg *{ color:inherit !important }
+[data-theme] .dcard{ border-color:var(--accent) !important; color:var(--accent) !important; box-shadow:2px 2px 0 rgba(var(--shadow-rgb),.08) !important }
+[data-theme] .gallery-photo{ border-color:var(--line) !important }
+[data-theme] .stage-status-line{ color:var(--accent) !important }
+[data-theme] .stage-status-line i{ background:var(--accent) !important; box-shadow:none !important }
+[data-theme] .finish-btn{ color:var(--accent) !important; border-color:var(--accent) !important }
+[data-theme] .empty-msg, [data-theme] small{ color:var(--muted) !important }
+
+/* dynamicky vytvarene overlaye (Martin AI, vyberova menu, nabidky pridani) -
+   vytvareji se primo do <body>, mimo hlavni appku, takze bez teto tridy
+   by na ne motiv vubec nedosahl */
+[data-theme] .ms-overlay{ background:rgba(var(--shadow-rgb),.75) !important }
+[data-theme] .ms-overlay > div{ background:var(--card-bg) !important; border-color:var(--line) !important; box-shadow:2px 2px 0 rgba(var(--shadow-rgb),.12) !important }
+[data-theme] .ms-overlay [style*="border:1px solid #b34cff"],
+[data-theme] .ms-overlay [style*="color:#b34cff"]{ border-color:var(--accent) !important; color:var(--accent) !important }
+
+/* OPRAVA: back-btn/icon-btn meli natvrdo tmave pozadi (#060b18cc, pro
+   neon rezim) - v kombinaci s vynucenym tmavym textem/ikonou to znamenalo
+   tmava ikona na tmavem pozadi = neviditelne. */
+[data-theme] .back-btn, [data-theme] .icon-btn, [data-theme] .square-btn, [data-theme] .menu-btn{
+  background:var(--card-bg) !important; border:1.5px solid var(--line) !important; color:var(--accent) !important;
+  box-shadow:1px 1px 0 rgba(var(--shadow-rgb),.12) !important;
+}
+[data-theme] .back-btn svg, [data-theme] .icon-btn svg, [data-theme] .square-btn svg, [data-theme] .menu-btn svg{ color:var(--accent) !important }
+
+/* jemny stin pod kartami - trocha "vahy", at to neni uplne ploche */
+[data-theme] .card, [data-theme] [style*="border:1px solid var(--line)"]{
+  box-shadow:2px 2px 0 rgba(var(--shadow-rgb),.08);
+}
+
+[data-theme] .f-input, [data-theme] .f-textarea{
+  background:var(--card-bg-2) !important; border:1px solid var(--line) !important;
+  box-shadow:2px 2px 0 rgba(var(--shadow-rgb),.08) !important;
+}
+[data-theme] .f-input::placeholder, [data-theme] .f-textarea::placeholder{ color:var(--muted) !important }
+
+[data-theme] .tile-del{ background:var(--card-bg-2) !important; border-color:var(--line) !important; color:var(--accent) !important }
+[data-theme] .tile-item svg{ stroke:var(--text-main) !important; color:var(--text-main) !important }
+
+/* PREPSANO (14.8.2026): puvodni reseni (velke patkove pismo + podtrzeni,
+   sipka v ramecku, slovo "Změnit") se snazilo naznacit "da se na tohle
+   klepnout" pridavanim detailu vedle - ale hlavni signal (font-head,
+   stejna velikost a rez jako skutecne nadpisy obrazovek) zustaval
+   totozny s nadpisem. Oko si vsimne velkeho pisma driv nez malych
+   detailu vedle nej, takze to porad cetlo jako nadpis, ne pole.
+   Reseni: cele ohraniceny box, presne jako ostatni pole ve stejnem
+   formulari (datum, castka) - bezne pismo, plny ramecek, zadny
+   patkovy font. Barevna tecka nese barvu etapy misto podtrzeni.
+   Zmena je jen v CSS, protoze .dd-btn je jedna sdilena trida pouzita
+   na osmi mistech (Denik, Finance, Galerie, Vydaje etapy, tri
+   formulare, export deniku) - JS se nikde menit nemusi. */
+.dd-btn{
+  width:100%; display:flex; align-items:center; gap:10px;
+  border:1.5px solid var(--line); background:var(--card-bg);
+  padding:11px 12px; color:var(--text-main); font:inherit; cursor:pointer; text-align:left;
+}
+.dd-btn:active{ background:rgba(255,255,255,.03) }
+.dd-btn .left{display:flex; align-items:center; gap:9px; flex:1; min-width:0}
+.dd-btn i{
+  display:block; width:9px; height:9px; flex:0 0 9px; border-radius:50%;
+  background:var(--accent);
+}
+.dd-btn .left > span:first-of-type{
+  font-family:inherit; font-size:13.5px; font-weight:700;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;
+  color:var(--text-main);
+}
+.dd-btn .left > span:first-of-type + span{
+  font-family:inherit; font-size:11px; color:var(--muted); font-weight:600; flex:0 0 auto;
+}
+.f-label + .dropdown .dd-btn .left > span:first-of-type{ font-size:13.5px }
+.dd-btn > svg{
+  width:14px; height:14px; flex:0 0 auto; color:var(--muted);
+}
+.dd-btn:after{ content:none }
+#projBtn{ border-color:var(--line) }
+/* [data-theme] (svetly "skica" motiv) uz na nove podobe nic neprepisuje -
+   plny ramecek a bezne pismo funguje stejne dobre v obou tematech, na
+   rozdil od puvodniho podtrzeni, ktere svetly motiv upravoval zvlast. */
+[data-theme] .dd-panel{ background:var(--card-bg) !important; border-color:var(--line) !important; }
+[data-theme] #projBtn{ background:var(--card-bg-2) !important; border-color:var(--line) !important; }
+[data-theme] .dd-item{ border-color:var(--line) !important }
+[data-theme] .dd-item.is-active{ background:rgba(var(--shadow-rgb),.08) !important }
+[data-theme] .dd-item i{ background:var(--accent) !important }
+
+[data-theme] #ccBox{ background:var(--card-bg) !important; box-shadow:2px 2px 0 rgba(var(--shadow-rgb),.1) !important }
+[data-theme] #wheelScroll > div{ background:var(--card-bg) !important; box-shadow:none !important }
+[data-theme] .stage-card{ border-color:var(--accent) !important; box-shadow:2px 2px 0 rgba(var(--shadow-rgb),.1) !important }
+[data-theme] .stage-card *[style*="border:1px solid"]{ border-color:var(--accent) !important; background:var(--card-bg) !important }
+
+[data-theme] .hero-gradient{ display:none !important }
+
+/* Pevna vyska + object-fit:cover. Cover roztahne obrazek pres celou
+   sirku a prebytek nahore a dole oreze - zadne pruhy po stranach a
+   zadne zmacknuti. Sedi na dum na Dashboardu i na obrazky etap,
+   ktere maji pomer stran uplne jiny. */
+.house-shot{ position:relative; width:100%; height:180px; overflow:hidden; background:var(--bg-deep) }
+.house-neon, .house-dark{
+  display:block; width:100%; height:100%; object-fit:cover; object-position:center; background:var(--bg-deep);
+}
+.house-dark{ display:none }
+/* nocni Skica - zatim nikde v appce neaktivni (zadny prepinac na "sketch-dark"
+   neukazuje), pripraveno predem stejne jako kdysi Neon/Skica pred svym spustenim */
+[data-theme="sketch-dark"] .house-neon{ display:none !important }
+[data-theme="sketch-dark"] .house-dark{ display:block !important }
+
+/* rychle pridani (radialni vejir) - melo natvrdo tmave pozadi tlacitek */
+[data-theme] .qa-btn{ background:var(--card-bg) !important; box-shadow:2px 2px 0 rgba(var(--shadow-rgb),.15) !important;
+  border-color:color-mix(in srgb, var(--sc) 55%, var(--text-main)) !important;
+  color:color-mix(in srgb, var(--sc) 55%, var(--text-main)) !important }
+[data-theme] #quick-add-backdrop{ background:radial-gradient(circle at 50% 100%, rgba(var(--shadow-rgb),.92) 0%, rgba(var(--shadow-rgb),.88) 35%, rgba(var(--shadow-rgb),.62) 65%, rgba(var(--shadow-rgb),.4) 100%) !important; }
+[data-theme] .qa-sat b{ color:#fff !important; text-shadow:0 1px 4px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.6) !important }
+
+/* vklad/vydaj: zarive zelena/cervena (neon) nahrazena tmave zelenou
+   a cihlovou - cili resp. jejich odstiny, misto krikleve barevnosti */
+[data-theme] [style*="color:#4dffab"]{ color:var(--money-pos) !important }
+[data-theme] [style*="border:1px solid #4dffab"]{ border-color:var(--money-pos) !important }
+[data-theme] [style*="color:#ff7a86"]{ color:var(--accent) !important }
+[data-theme] [style*="border:1px solid #ff7a86"]{ border-color:var(--accent) !important }
+[data-theme] [style*="color:#ff6a6a"]{ color:var(--accent) !important }
+
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg-deep);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  overscroll-behavior:none;color:#f5f7ff}
+
+#app-shell{
+  width:min(480px,100vw); height:100vh; height:100dvh; height:100svh; height:var(--app-vh,100svh); margin:0 auto; position:relative;
+  display:flex; justify-content:center;
+  background:var(--bg-deep);
+  z-index:1;
+}
+#app-frame{
+  position:relative; width:100%; max-width:480px; height:100%;
+  display:flex; flex-direction:column; overflow:hidden;
+  background:radial-gradient(circle at 20% 0%, #10203a 0, #02050e 28%, #01020a 100%);
+}
+#app-frame:before{
+  content:""; position:absolute; inset:0; pointer-events:none; z-index:1;
+  background:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),
+             linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size:28px 28px; mask-image:linear-gradient(#000,transparent 70%);
+}
+#app-content{
+  position:relative; z-index:2;
+  flex:1 1 auto; min-height:0; overflow:hidden;
+  display:flex; flex-direction:column;
+}
+
+/* jemny prechod pri kazde zmene obrazovky - misto aby to "surove" naskocilo */
+#app-content.enter{ animation:screenIn .22s ease both; }
+@keyframes screenIn{ from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:translateY(0)} }
+
+/* jednoduchy tocici se indikator pro delsi operace na pozadi (napr.
+   nahravani do cloudu) - at appka jasne pusobi jako "pracuje", ne
+   jako by zamrzla */
+
+/* ==========================================================
+   TOPBAR - kazda obrazovka si sem vyplni vlastni obsah, ale
+   zakladni rozmery/odsazeni jsou spolecne
+   ========================================================== */
+.topbar{
+  padding:calc(14px + env(safe-area-inset-top)) 16px 4px;
+  display:flex; align-items:center; gap:10px; flex:0 0 auto; position:relative;
+}
+.back-btn,.icon-btn,.square-btn{
+  width:32px; height:32px; border-radius:var(--radius); border:1px solid var(--line);
+  background:var(--card-bg-2); display:grid; place-items:center; color:var(--text-main); flex:0 0 auto; cursor:pointer;
+}
+.topbar h1{margin:0; font-size:18px; font-weight:800; flex:1}
+.topbar .top-actions{display:flex; gap:8px}
+
+/* ==========================================================
+   OBSAH OBRAZOVKY (scrollovatelny vnitrek pod topbarem)
+   ========================================================== */
+.screen-scroll{flex:1 1 auto; min-height:0; overflow-y:auto; padding:6px 16px calc(24px + min(env(safe-area-inset-bottom),34px))}
+.screen-scroll.no-scroll{ overflow-y:hidden; }
+
+/* ==========================================================
+   SPODNI NAVIGACE - normalni flex polozka, NE position:fixed.
+   Je spravne dole vzdy, protoze cely #app-frame je fixni na
+   viditelnou plochu (viz komentar nahore).
+   ========================================================== */
+/* Navigace je dvouradkova - devet sekci misto ctyr. Vyska je v
+   promenne --nav-h, protoze na ni visi i pozice radialniho rychleho
+   pridani; ladi se tak jedno cislo na jednom miste. */
+:root{ --nav-h:88px }
+
+#bottom-nav{
+  flex:0 0 auto; position:relative; z-index:2;
+  display:flex; flex-direction:column; gap:2px;
+  padding:6px 8px calc(10px + min(env(safe-area-inset-bottom),34px));
+  border-top:1px solid var(--line); background:var(--bg-deep);
+}
+.nav-row{display:grid; align-items:end}
+.nav-row-1{grid-template-columns:1fr 1fr 60px 1fr 1fr}
+.nav-row-2{grid-template-columns:repeat(5,1fr)}
+#bottom-nav[hidden]{display:none}
+
+/* Android (Capacitor) nema "home indicator" jako iPhone - env(safe-area-
+   inset-bottom) tam bud vraci 0 (a tenhle blok je pak jen pro jistotu),
+   nebo si to WebView pocita jinak nez Safari a vznikala zbytecna mezera
+   pod spodni navigaci/rychlym pridanim/potvrzovacim oknem. Na Androidu
+   proto tenhle "iPhone" prostor uplne vypneme. */
+.is-android-native #bottom-nav{ padding-bottom:12px; }
+.is-android-native .screen-scroll{ padding-bottom:24px; }
+.is-android-native #quick-add-radial{ bottom:calc(var(--nav-h) + 12px); }
+.is-android-native .confirm-sheet{ padding-bottom:20px; }
+
+.nav-item{display:flex; flex-direction:column; align-items:center; gap:3px; color:#a7b0cc;
+  background:none; border:0; font:inherit; cursor:pointer; padding:3px 2px 0; min-width:0}
+/* Neaktivni polozka je cela svetla. Na te strane, kde prave jsi, se
+   vybarvi CELY piktogram - obrys dostane barvu sekce a vnitrek se
+   vyplni stejnou barvou ve 22 %, takze ikona pusobi plne. */
+.nav-item svg{width:19px; height:19px; color:#a7b0cc; fill:none}
+.nav-item b{font-size:9px; font-weight:700; color:#a7b0cc; letter-spacing:-.01em;
+  max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.nav-item.active svg{
+  color:var(--nc,#c15cff);
+  fill:color-mix(in srgb, var(--nc,#c15cff) 22%, transparent);
+  filter:drop-shadow(0 0 5px color-mix(in srgb, var(--nc,#c15cff) 45%, transparent));
+}
+.nav-item.active b{color:var(--nc,#c15cff)}
+.nav-add{width:44px; height:44px; border-radius:50%; border:2px solid #954aff; background:#160826;
+  display:grid; place-items:center; color:#fff; margin:-16px auto 0; box-shadow:0 0 22px rgba(179,76,255,.55);
+  cursor:pointer; padding:0; align-self:end}
+
+/* ==========================================================
+   RYCHLE PRIDANI (radialni menu) - sdilene, jedna definice pro
+   celou appku (drive samostatna stranka, ted overlay nad
+   cimkoliv, kdekoliv v appce jsi)
+   ========================================================== */
+#quick-add-backdrop{position:absolute; inset:0; background:radial-gradient(circle at 50% 100%, rgba(2,4,10,.97) 0%, rgba(2,4,10,.94) 35%, rgba(2,4,10,.75) 65%, rgba(2,4,10,.55) 100%); z-index:40;
+  opacity:0; pointer-events:none; transition:opacity .18s ease}
+#quick-add-backdrop.open{opacity:1; pointer-events:auto}
+#quick-add-backdrop[hidden]{display:none}
+#quick-add-radial{position:absolute; left:50%; bottom:calc(var(--nav-h) + 12px + min(env(safe-area-inset-bottom),34px)); z-index:41; pointer-events:none}
+#quick-add-radial[hidden]{display:none}
+.qa-sat{position:absolute; left:0; top:0; display:flex; flex-direction:column; align-items:center; gap:6px;
+  transform:translate(-50%,-50%) scale(.3); opacity:0; transition:transform .22s cubic-bezier(.34,1.4,.64,1), opacity .18s ease;
+  pointer-events:none}
+#quick-add-radial.open .qa-sat{opacity:1; pointer-events:auto}
+.qa-btn{width:52px; height:52px; border-radius:50%; border:2px solid var(--sc); background:#0c1020;
+  display:grid; place-items:center; color:var(--sc); box-shadow:0 0 18px color-mix(in srgb, var(--sc) 45%, transparent)}
+.qa-btn svg{width:22px; height:22px}
+.qa-sat b{font-size:11px; font-weight:800; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,.9), 0 0 8px rgba(0,0,0,.6)}
+
+/* ==========================================================
+   SDILENE OBECNE PRVKY (pouzivaji je vsechny obrazovky)
+   ========================================================== */
+.section-label{font-size:11.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:800; margin:16px 0 8px}
+.field-block{margin-bottom:12px}
+.f-label{font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); font-weight:800; margin:0 0 6px; display:block}
+.f-input,.f-textarea{width:100%; min-width:0; max-width:100%; border:1px solid var(--line); background:rgba(6,10,22,.5); color:#fff;
+  padding:10px 12px; font-size:16px; font:inherit; border-radius:var(--radius)}
+.f-input::placeholder,.f-textarea::placeholder{color:#5c6584}
+.f-input:focus,.f-textarea:focus{outline:none; border-color:var(--accent)}
+.f-textarea{resize:none; min-height:80px; line-height:1.4}
+.btn-primary{width:100%; border-radius:var(--radius); padding:12px; font-weight:800; font-size:14px;
+  border:1px solid var(--accent); background:rgba(255,255,255,.02); color:#fff; cursor:pointer;
+  filter:drop-shadow(0 0 6px var(--accent))}
+.btn-primary:disabled,.btn-ghost:disabled{opacity:.4; cursor:not-allowed; filter:none; pointer-events:none}
+.btn-ghost{width:100%; border-radius:var(--radius); padding:11px; font-weight:700; font-size:12.5px;
+  border:1px solid var(--line); background:transparent; color:var(--muted); cursor:pointer}
+.empty-msg{color:var(--muted); font-size:12px; text-align:center; padding:30px 0}
+
+.dropdown{position:relative}
+/* ==========================================================
+   VYBER ETAPY (7.8.2026)
+   Zavreny stav je nadpis s barevnym podtrzenim - zadny ramecek,
+   splyva s obsahem. Vpravo je pocet zaznamu, coz byva jedina
+   informace, kvuli ktere do filtru clovek ťuka.
+
+   Rozbaleny stav uz neni okenko odsouvajici obsah dolu, ale panel
+   vysunuty odspodu: je jedno, jestli mas 5 nebo 30 etap, obsah pod
+   nim se nehne a palec to ma blizko. Nazvy trid zustavaji, aby
+   obrazovky nemusely menit svou logiku.
+   ========================================================== */
+/* .dd-btn samotne se styluje uz vyse (u ostatnich pravidel pro pole
+   formulare) - tenhle druhy, puvodni blok tu drive zustaval duplicitne
+   a kvuli poradi v CSS (posledni pravidlo vyhrava) tise prebijel tu
+   novou verzi bez ohledu na to, co stalo vyse. (14.8.2026) */
+
+#dd-backdrop{
+  position:fixed; inset:0; background:rgba(2,4,10,.38); z-index:91;
+  opacity:0; pointer-events:none; transition:opacity .2s ease;
+}
+#dd-backdrop.open{opacity:1; pointer-events:auto}
+.dd-panel{
+  position:fixed; left:0; right:0; bottom:0; width:min(480px,100vw); margin:0 auto;
+  z-index:92; background:var(--card-bg); border-top:1px solid var(--line);
+  transform:translateY(101%); transition:transform .26s cubic-bezier(.32,.9,.36,1);
+  max-height:70%; overflow-y:auto; overscroll-behavior:contain;
+  padding-bottom:calc(10px + min(env(safe-area-inset-bottom),34px));
+}
+.dd-panel.open{transform:translateY(0)}
+/* pri zaoblenych rozich se zaobli i horni hrany vysunuteho panelu */
+.dd-panel, .dd-panel:before{border-top-left-radius:var(--radius); border-top-right-radius:var(--radius)}
+.dd-panel:before{
+  content:'Vybrat etapu'; display:block; position:sticky; top:0; z-index:1;
+  background:var(--card-bg); border-bottom:1px solid var(--line);
+  padding:14px 16px 11px; font-family:var(--font-head); font-size:15px; font-weight:700; color:#fff;
+}
+
+/* hlavicka panelu se da prepsat podle toho, co se vybira */
+.dd-panel[data-sheet-title]:before{content:attr(data-sheet-title)}
+/* PREPSANO (14.8.2026): polozky byly ploche radky oddelene carou dole -
+   presne ten "seznam jako v Excelu" dojem, ktery uz appka resila u
+   nabidky pod tremi teckami (tile-menu) a jinde. Stejne reseni i tady:
+   kazda polozka je vlastni ohranicena karta s barevnym prouzkem vlevo
+   (barva etapy), oddelena mezerou mista carou. Aktivni polozka dostava
+   plne vybarveny prouzek a fajfku vpravo, misto jen tinovaneho pozadi. */
+.dd-panel{ padding-left:12px; padding-right:12px }
+.dd-panel:before{ padding-left:16px; padding-right:16px; margin:0 -12px 8px }
+.dd-item{
+  display:flex; align-items:center; gap:10px;
+  padding:12px 13px; margin-bottom:7px; font-size:13.5px; color:var(--text-main);
+  border:1px solid var(--line); border-left:3px solid var(--line);
+  background:var(--card-bg-2); cursor:pointer;
+}
+.dd-item:active{ background:rgba(255,255,255,.04) }
+.dd-item i{
+  width:9px !important; height:9px !important; margin:0 9px 0 0 !important; flex:0 0 9px;
+  border-radius:50%;
+}
+/* pocet zaznamu v etape - zarovnany doprava, at se da seznam prejet okem */
+.dd-item .dd-n{margin-left:auto; padding-left:10px; font-size:11.5px; font-weight:700; color:var(--muted); flex:0 0 auto}
+.dd-item.is-active .dd-n{color:inherit}
+.dd-item.is-active{
+  border-left-color:var(--accent); background:color-mix(in srgb, var(--accent) 12%, var(--card-bg-2));
+  font-weight:800; color:#fff;
+}
+.dd-item.is-active:after{
+  content:''; width:16px; height:16px; flex:0 0 16px; margin-left:8px;
+  background:var(--accent);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13l4 4L19 7'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13l4 4L19 7'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.dd-item.is-active .dd-n{ margin-left:8px }
+
+/* modalni potvrzovaci dialog - nahrazuje prohlizecovy confirm(), stejne chovani vsude */
+#confirm-overlay{position:fixed; inset:0; background:rgba(2,4,10,.7); z-index:90; display:none; align-items:flex-end; justify-content:center}
+#confirm-overlay.open{display:flex}
+.confirm-sheet{width:100%; max-width:480px; background:var(--card-bg-2); border-top:1px solid var(--line); padding:20px 18px calc(20px + min(env(safe-area-inset-bottom),34px))}
+.confirm-sheet p{margin:0 0 16px; font-size:13.5px; line-height:1.5; color:#dfe4f5}
+.confirm-actions{display:flex; gap:8px}
+.confirm-actions button{flex:1; padding:11px; border-radius:var(--radius); font-weight:800; font-size:13px; cursor:pointer}
+.confirm-actions .confirm-cancel{border:1px solid var(--line); background:transparent; color:var(--muted)}
+.confirm-actions .confirm-ok{border:1px solid var(--accent); background:rgba(255,255,255,.03); color:#fff}
+
+
+/* ==========================================================
+   ZNACKA ETAPY U TRANSAKCE (7.8.2026)
+   V seznamu "vse" nebylo z rady poznat, ke ktere etape vydaj patri -
+   nazev byl az v drobnem sedem radku pod nim. Ted je pred kazdou
+   transakci ctverecek s ikonou etapy v jeji barve.
+   ========================================================== */
+.tx-stage{
+  width:32px; height:32px; flex:0 0 32px; display:grid; place-items:center;
+  border:1px solid color-mix(in srgb, var(--sc, var(--muted)) 55%, transparent);
+  background:color-mix(in srgb, var(--sc, var(--muted)) 10%, transparent);
+  color:var(--sc, var(--muted)); border-radius:var(--radius); box-sizing:border-box;
+}
+.tx-stage.is-none{ border-style:dashed }
+
+/* ==========================================================
+   HUSTOTA ZOBRAZENI (7.8.2026)
+   Velikosti pisma a odsazeni jsou v appce napsane natvrdo v px na
+   stovkach mist. Misto jejich prepisovani se scvrkne cely obsah
+   najednou. Zoom (na rozdil od transform:scale) meni i vypocet
+   layoutu, takze se nic nerozbije. Zamerne NEplati na dolni
+   navigaci - ta je mimo #app-content a ma zustat velka na palec.
+   ========================================================== */
+#app-content{ zoom:var(--ui-scale, 1) }
+/* Vysunuty vyber etapy se pri otevreni presouva do #app-frame (viz
+   layout.js) - je proto MIMO zoom a musi mit vlastni velikost pisma,
+   jinak by pri zmensenem zobrazeni psal vetsim pismem nez zbytek. */
+#app-frame > .dd-panel{ zoom:var(--ui-scale, 1) }
+
+/* ==========================================================
+   ZNACKA V HLAVICCE (7.8.2026)
+   Jen na Dashboardu - viz komentar v screen-dashboard.js.
+   Zamerne je tlumena: nema prekricet nazev projektu pod ni,
+   jen rict, v cem clovek je.
+   ========================================================== */
+.ms-brand{
+  display:flex; align-items:center; gap:6px;
+  padding:calc(6px + env(safe-area-inset-top)) 16px 0;
+  color:var(--muted); font-size:10.5px; font-weight:800;
+  letter-spacing:.14em; text-transform:uppercase;
+}
+.ms-brand img{flex:0 0 auto; display:block}
+.ms-brand + .topbar{padding-top:5px}   /* horni bezpecnou zonu uz zapocitala .ms-brand */
+
+/* ==========================================================
+   Nabidka pod tremi teckami (11.8.2026)
+   Puvodne to byl holy seznam radku oddelenych carami pres
+   celou sirku - pusobilo to jako tabulka, ne jako nabidka.
+   Ted: ikony vlevo, cary jen jako jemne oddeleni, "Zrusit"
+   odsazene zvlast a v hlavicce ikona te konkretni polozky
+   (prevzata primo z dlazdice, na kterou clovek klepnul).
+   ========================================================== */
+.ms-sheet-backdrop{ animation: msSheetFade .18s ease-out }
+.ms-sheet{ animation: msSheetUp .22s cubic-bezier(.22,.68,.36,1) }
+@keyframes msSheetFade{ from{ opacity:0 } to{ opacity:1 } }
+@keyframes msSheetUp{ from{ transform:translateY(14px); opacity:.4 } to{ transform:translateY(0); opacity:1 } }
+@media (prefers-reduced-motion: reduce){
+  .ms-sheet-backdrop, .ms-sheet{ animation:none }
+}
+.ms-sheet-btn{
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px;
+  padding:15px 8px; cursor:pointer; text-align:center;
+  background:var(--card-bg); border:1.5px solid var(--line);
+  color:var(--text-main); font-family:inherit; font-size:11.5px; font-weight:800;
+  transition:background .12s, border-color .12s;
+}
+.ms-sheet-btn:active{ background:rgba(255,255,255,.06) }
+.ms-sheet-btn svg{ opacity:.95 }
+.ms-sheet-btn.is-share{ border-color:color-mix(in srgb, #25b7ff 60%, transparent); color:#25b7ff }
+.ms-sheet-btn.is-del{ border-color:color-mix(in srgb, #ff7a86 55%, transparent); color:#ff7a86 }
+.ms-sheet-cancel{
+  display:block; width:100%; text-align:center;
+  padding:14px; margin-top:8px; cursor:pointer;
+  background:var(--card-bg-2); border:1px solid var(--line);
+  color:var(--muted); font-family:inherit; font-size:13px; font-weight:700;
+}
+.ms-sheet-cancel:active{ background:rgba(255,255,255,.04) }
+.ms-sheet-visual svg{ width:22px; height:22px }
+.ms-sheet-visual > div{ width:100%; height:100% }
